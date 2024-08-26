@@ -3,23 +3,26 @@ import mediapipe as mp
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import threading
+import matplotlib
+matplotlib.use('TkAgg')
+
 
 # Variables globales para compartir datos entre hilos
 x_vals, y_vals, z_vals = [], [], []
 lock = threading.Lock()  # Un candado para asegurar que los datos se manipulan de forma segura
+running = True  # Flag para detener los hilos
 
 # Función para capturar video y procesar puntos clave
 def captura_y_procesa():
-    global x_vals, y_vals, z_vals
+    global x_vals, y_vals, z_vals, running
     mp_hands = mp.solutions.hands
     
-   
     hands = mp_hands.Hands()
     mp_draw = mp.solutions.drawing_utils
 
     cap = cv2.VideoCapture(0)
 
-    while True:
+    while running:
         success, img = cap.read()
         if not success:
             break
@@ -27,7 +30,6 @@ def captura_y_procesa():
         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         results = hands.process(img_rgb)
    
-
         if results.multi_hand_landmarks:
             for hand_landmarks in results.multi_hand_landmarks:
                 mp_draw.draw_landmarks(img, hand_landmarks, mp_hands.HAND_CONNECTIONS)
@@ -49,6 +51,7 @@ def captura_y_procesa():
 
         cv2.imshow("Hand Tracking", img)
         if cv2.waitKey(1) & 0xFF == ord('q'):
+            running = False
             break
 
     cap.release()
@@ -56,12 +59,12 @@ def captura_y_procesa():
 
 # Función para visualizar los puntos 3D
 def visualiza_3d():
-    global x_vals, y_vals, z_vals
+    global x_vals, y_vals, z_vals, running
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
 
-    while True:
+    while running:
         with lock:  # Usar un candado para asegurar el acceso seguro a las listas
             ax.cla()  # Limpiar el gráfico antes de volver a dibujarlo
             ax.scatter(x_vals, y_vals, z_vals, c='r', marker='o')
@@ -76,7 +79,6 @@ def visualiza_3d():
 # Crear y empezar los hilos
 hilo_visualiza = threading.Thread(target=visualiza_3d)
 hilo_captura = threading.Thread(target=captura_y_procesa)
-
 
 hilo_captura.start()
 hilo_visualiza.start()
